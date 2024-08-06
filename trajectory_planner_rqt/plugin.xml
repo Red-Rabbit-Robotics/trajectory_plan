@@ -1,0 +1,15 @@
+<library path="src/trajectory_planner_rqt">
+  <class name="trajectory_planner_rqt.TrajectoryPlannerRqt"
+         type="trajectory_planner_rqt.trajectory_planner_rqt.TrajectoryPlannerRqt"
+         base_class_type="rqt_gui_py::Plugin">
+    <description>
+      RQt plugin for trajectory planning.
+    </description>
+    <qtgui>
+        <label>Trajectory planner rqt plugin</label>
+        <icon type="theme">mail-message-new</icon>
+      	<statustip>A Python GUI plugin for trajectory planning.</statustip> 
+    </qtgui>
+  </class>
+</library>
+

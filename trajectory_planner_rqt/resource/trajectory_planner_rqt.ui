@@ -1,0 +1,158 @@
+<?xml version="4.0"?>
+<ui version="4.0">
+ <class>TrajectoryPlanner</class>
+ <widget class="QWidget" name="TrajectoryPlanner">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>400</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Trajectory Planner</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLineEdit" name="urdfFileLineEdit">
+     <property name="placeholderText">
+      <string>URDF File</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="chainStartLeftLineEdit">
+     <property name="placeholderText">
+      <string>Left Arm Chain Start</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="chainEndLeftLineEdit">
+     <property name="placeholderText">
+      <string>Left Arm Chain End</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="chainStartRightLineEdit">
+     <property name="placeholderText">
+      <string>Right Arm Chain Start</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="chainEndRightLineEdit">
+     <property name="placeholderText">
+      <string>Right Arm Chain End</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDoubleSpinBox" name="collisionRadiusSpinBox">
+     <property name="prefix">
+      <string>Collision Radius: </string>
+     </property>
+     <property name="suffix">
+      <string> m</string>
+     </property>
+     <property name="maximum">
+      <double>1.0</double>
+     </property>
+     <property name="minimum">
+      <double>0.01</double>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDoubleSpinBox" name="timeSpinBox">
+     <property name="prefix">
+      <string>Time: </string>
+     </property>
+     <property name="suffix">
+      <string> s</string>
+     </property>
+     <property name="maximum">
+      <double>100.0</double>
+     </property>
+     <property name="minimum">
+      <double>1.0</double>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QSpinBox" name="numWaypointsSpinBox">
+     <property name="prefix">
+      <string>Waypoints: </string>
+     </property>
+     <property name="maximum">
+      <number>100</number>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="planLeftButton">
+     <property name="text">
+      <string>Plan Left Trajectory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="planRightButton">
+     <property name="text">
+      <string>Plan Right Trajectory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="visualizeLeftButton">
+     <property name="text">
+      <string>Visualize Left Trajectory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="visualizeRightButton">
+     <property name="text">
+      <string>Visualize Right Trajectory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="publishLeftButton">
+     <property name="text">
+      <string>Publish Left Trajectory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="publishRightButton">
+     <property name="text">
+      <string>Publish Right Trajectory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="loadButton">
+     <property name="text">
+      <string>Load Config</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="saveButton">
+     <property name="text">
+      <string>Save Config</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
+

@@ -1,0 +1,5 @@
+<launch>
+    <node name="trajectory_planner_node" pkg="trajectory_planner" type="trajectory_planner_node" output="screen">
+        <param name="config_file" value="$(find trajectory_planner)/config/trajectory_planner.yaml"/>
+    </node>
+</launch>

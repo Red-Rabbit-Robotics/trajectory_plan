@@ -1,0 +1,7 @@
+<launch>
+  <!-- Launch the RQT GUI -->
+  <node name="rqt_trajectory_planner" pkg="rqt_gui" type="rqt_gui" output="screen">
+    <param name="plugin" value="trajectory_planner_rqt"/>
+  </node>
+</launch>
+

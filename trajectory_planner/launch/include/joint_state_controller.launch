@@ -1,0 +1,21 @@
+<launch>
+  <!-- Load the controller configurations -->
+  <rosparam file="$(find trajectory_planner)/config/joint_trajectory_controllers.yaml" command="load"/>
+
+  <!-- Start the controller manager -->
+  <node name="controller_manager" pkg="controller_manager" type="controller_manager" respawn="false" output="screen" />
+
+
+  <!-- Start the joint state controller -->
+  <node name="joint_state_controller_spawner" pkg="controller_manager" type="spawner" args="joint_state_controller" />
+
+
+  <!-- Start the controller manager for the left arm -->
+  <node name="left_arm_controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen"
+        args="--timeout 0 left_arm_controller"/>
+
+  <!-- Start the controller manager for the right arm -->
+  <node name="right_arm_controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen"
+        args="--timeout 0 right_arm_controller"/>
+</launch>
+

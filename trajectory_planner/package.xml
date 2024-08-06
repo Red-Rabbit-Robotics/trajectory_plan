@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>trajectory_planner</name>
+  <version>0.0.1</version>
+  <description>The trajectory_planner package</description>
+  <maintainer email="lingkangzhang@gmail.com">Lingkang Zhang</maintainer>
+  <license>MIT</license>
+  
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>pcl_ros</depend>
+  <depend>tf</depend>
+  <depend>ompl</depend>
+  <depend>urdf</depend>
+  <depend>yaml-cpp</depend>
+  <depend>interactive_markers</depend>
+  <depend>std_srvs</depend>
+  <depend>kdl_parser</depend>
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+  </export>
+</package>
+

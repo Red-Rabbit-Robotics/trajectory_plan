@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>trajectory_planner_rqt</name>
+  <version>0.0.1</version>
+  <description>The trajectory_planner_rqt package</description>
+  <maintainer email="lingkangzhang@gmail.com">Lingkang Zhang</maintainer>
+  <license>BSD</license>
+
+  <depend>rqt_gui</depend>
+  <depend>rqt_gui_py</depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+  </export>
+</package>
+

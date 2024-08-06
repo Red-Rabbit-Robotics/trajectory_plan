@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>trajectory_plan</name>
+  <version>0.0.1</version>
+  <description>The trajectory_plan meta-package</description>
+  <maintainer email="lingkangzhang@gmail.com">Lingkang Zhang</maintainer>
+  <license>MIT</license>
+  
+  <depend>trajectory_planner</depend>
+  <depend>trajectory_planner_rqt</depend>
+  <depend>cube_publisher</depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>
