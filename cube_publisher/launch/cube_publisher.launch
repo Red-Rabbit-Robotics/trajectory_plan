@@ -1,16 +1,16 @@
 <launch>
   <!-- Launch the cube publisher node -->
   <node name="cube_publisher" pkg="cube_publisher" type="cube_publisher_node" output="screen">
-    <param name="cube/x" type="double" value="0.3"/>
+    <param name="cube/x" type="double" value="0.2"/>
     <param name="cube/y" type="double" value="-0.25"/>
-    <param name="cube/z" type="double" value="-0.5"/>
+    <param name="cube/z" type="double" value="-0.35"/>
     <param name="cube/qx" type="double" value="0.0"/>
     <param name="cube/qy" type="double" value="0.0"/>
     <param name="cube/qz" type="double" value="0.0"/>
     <param name="cube/qw" type="double" value="1.0"/>
-    <param name="cube/scale_x" type="double" value="0.2"/>
+    <param name="cube/scale_x" type="double" value="0.1"/>
     <param name="cube/scale_y" type="double" value="0.3"/>
-    <param name="cube/scale_z" type="double" value="0.1"/>
+    <param name="cube/scale_z" type="double" value="0.05"/>
   </node>
 
 </launch>

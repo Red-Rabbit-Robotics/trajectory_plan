@@ -1,4 +1,4 @@
-collision_radius: 0.1
+collision_radius: 0.05
 left_arm:
   chain_end: left_forearm_roll_link
   chain_start: head_base_link
@@ -10,7 +10,7 @@ left_arm:
   - left_forearm2forearmrot_joint
   - left_forearmrot2forearm_pitch_joint
   - left_forearm_pitch2forearm_roll_joint
-num_waypoints: 50
+num_waypoints: 20
 right_arm:
   chain_end: right_forearm_roll_link
   chain_start: head_base_link
@@ -22,5 +22,5 @@ right_arm:
   - right_forearm2forearmrot_joint
   - right_forearmrot2forearm_pitch_joint
   - right_forearm_pitch2forearm_roll_joint
-time: 1.0
+time: 2.0
 urdf_file: package://rx1_description/urdf/rx1.urdf

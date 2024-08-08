@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
   pcl_ros
   tf
+  tf2_ros
   urdf
   interactive_markers
   std_srvs
@@ -29,7 +30,7 @@ find_package(yaml-cpp REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES trajectory_planner
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs geometry_msgs kdl_parser trajectory_msgs visualization_msgs pcl_ros tf urdf interactive_markers std_srvs
+  CATKIN_DEPENDS roscpp std_msgs sensor_msgs geometry_msgs kdl_parser trajectory_msgs visualization_msgs pcl_ros tf tf2_ros urdf interactive_markers std_srvs
   DEPENDS yaml-cpp ompl
 )
 

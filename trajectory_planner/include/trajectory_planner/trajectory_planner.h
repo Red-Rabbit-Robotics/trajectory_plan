@@ -12,14 +12,18 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
-#include <kdl/chainiksolverpos_nr.hpp>
+//#include <kdl/chainiksolverpos_nr.hpp>
+#include <kdl/chainiksolverpos_nr_jl.hpp>
 #include <kdl/chainiksolvervel_pinv.hpp>
 #include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/RRTXstatic.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -49,6 +53,7 @@ public:
     void loadArmConfig(const YAML::Node& arm_config, ArmConfig& arm);
     void depthCameraCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
     void cubeObstacleCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
+    pcl::PointCloud<pcl::PointXYZ> transformCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud, const std::string& target_frame);
     bool planTrajectory(const ArmConfig& arm, const std::vector<double>& start_joint_angles, const geometry_msgs::Pose& target_pose, double time, int num_waypoints, trajectory_msgs::JointTrajectory& trajectory);
     void planLeftTrajectoryCallback(const geometry_msgs::Pose::ConstPtr& msg);
     void planRightTrajectoryCallback(const geometry_msgs::Pose::ConstPtr& msg);
@@ -60,7 +65,7 @@ public:
     void trajToJointStatePubTimerCallback(const ros::TimerEvent& event);
 
 private:
-    bool isStateValid(const ompl::base::State* state, const size_t dimension);
+    bool isStateValid(const ompl::base::State* state, const std::vector<std::pair<double, double>> joint_limits, const size_t dimension);
     std::vector<std::pair<double, double>> getJointLimits(const urdf::Model& model, const std::vector<std::string>& joint_names);
 
     ros::NodeHandle nh_;
@@ -95,12 +100,17 @@ private:
     pcl::PointCloud<pcl::PointXYZ> cube_point_cloud_;
     pcl::PointCloud<pcl::PointXYZ> depth_camera_point_cloud_;
     pcl::PointCloud<pcl::PointXYZ> combined_point_cloud_;
+    tf2_ros::Buffer tf_buffer_;
+    tf2_ros::TransformListener tf_listener_;
     trajectory_msgs::JointTrajectory left_planned_trajectory_;
     trajectory_msgs::JointTrajectory right_planned_trajectory_;
     geometry_msgs::PoseArray ompl_path_pose_array_; 
 
+    bool use_depth_camera_point_cloud_;
     bool depth_camera_point_cloud_exist_;
     bool cube_point_cloud_exist_;
+    double point_cloud_update_interval_;
+    ros::Time last_point_cloud_update_time_;
 
     bool planning_for_right_arm_;
 
