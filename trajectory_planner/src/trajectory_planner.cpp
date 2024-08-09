@@ -1,4 +1,8 @@
 #include <ros/package.h>
+
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/passthrough.h>
+
 #include "trajectory_planner/trajectory_planner.h"
 
 bool getIK(const KDL::Chain& chain, const std::vector<std::pair<double, double>> joint_limits, const KDL::Frame& target_frame, KDL::JntArray& res) {
@@ -42,7 +46,8 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle& nh, const std::strin
       depth_camera_point_cloud_exist_(false), 
       cube_point_cloud_exist_(false),
       use_depth_camera_point_cloud_(true),
-      point_cloud_update_interval_(0.5){
+      depth_point_cloud_update_interval_(0.3),
+      cube_point_cloud_update_interval_(5.0){
     
     loadConfig(config_file);
 
@@ -68,7 +73,8 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle& nh, const std::strin
     current_left_joint_angles_.resize(left_arm_.joint_names.size(), 0.0);
     current_right_joint_angles_.resize(right_arm_.joint_names.size(), 0.0);
 
-    last_point_cloud_update_time_ = ros::Time::now();
+    last_cube_point_cloud_update_time_ = ros::Time::now();
+    last_depth_point_cloud_update_time_ = ros::Time::now();
 }
 
 bool TrajectoryPlanner::reloadConfigCallback(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res) {
@@ -127,14 +133,15 @@ void TrajectoryPlanner::loadArmConfig(const YAML::Node& arm_config, ArmConfig& a
 
 void TrajectoryPlanner::cubeObstacleCallback(const sensor_msgs::PointCloud2::ConstPtr& msg) {
     //pcl::fromROSMsg(*msg, *cube_point_cloud_);
-    
-    if ((ros::Time::now() - last_point_cloud_update_time_).toSec() > point_cloud_update_interval_)
-    {
-        last_point_cloud_update_time_ = ros::Time::now();
 
-        pcl::fromROSMsg(*msg, cube_point_cloud_);
-        
-        cube_point_cloud_exist_ = true;
+    pcl::fromROSMsg(*msg, cube_point_cloud_);
+    
+    cube_point_cloud_exist_ = true;
+
+
+    if ((ros::Time::now() - last_cube_point_cloud_update_time_).toSec() > cube_point_cloud_update_interval_)
+    {
+        last_cube_point_cloud_update_time_ = ros::Time::now();
         if (depth_camera_point_cloud_exist_)
         {   
             combined_point_cloud_ = transformCloud(cube_point_cloud_, right_arm_.chain_start) + transformCloud(depth_camera_point_cloud_, right_arm_.chain_start);
@@ -152,24 +159,109 @@ void TrajectoryPlanner::cubeObstacleCallback(const sensor_msgs::PointCloud2::Con
 }
 
 void TrajectoryPlanner::depthCameraCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg) {
-    if (use_depth_camera_point_cloud_ && (ros::Time::now() - last_point_cloud_update_time_).toSec() > point_cloud_update_interval_)
+    if (use_depth_camera_point_cloud_ && (ros::Time::now() - last_depth_point_cloud_update_time_).toSec() > depth_point_cloud_update_interval_)
     {
-        last_point_cloud_update_time_ = ros::Time::now();
+        last_depth_point_cloud_update_time_ = ros::Time::now();
 
         pcl::PointCloud<pcl::PointXYZ> cloud;
         pcl::fromROSMsg(*cloud_msg, cloud);
 
+        pcl::PointCloud<pcl::PointXYZ> cloud_transformed;
+        
+        cloud_transformed = transformCloud(cloud, right_arm_.chain_start);
+
         depth_camera_point_cloud_exist_ = true;
         // Downsample the point cloud for efficiency
         pcl::VoxelGrid<pcl::PointXYZ> vg;
-        pcl::PointCloud<pcl::PointXYZ> cloud_filtered;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZ>(cloud));
+        pcl::PointCloud<pcl::PointXYZ> cloud_sampled;
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZ>(cloud_transformed));
         vg.setInputCloud(cloud_ptr);
         vg.setLeafSize(0.05f, 0.05f, 0.05f);
-        vg.filter(cloud_filtered);
+        vg.filter(cloud_sampled);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sampled_ptr(new pcl::PointCloud<pcl::PointXYZ>(cloud_sampled));
+        //ROS_INFO("cloud_sampled size %d", cloud_sampled.points.size());
+        //ROS_INFO("cloud_sampled ptr size %d", cloud_sampled_ptr->points.size());
 
+        // Only keep points 1 meter away from the head_base_link frame
+        pcl::PointCloud<pcl::PointXYZ> cloud_cropped;
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cropped_ptr(new pcl::PointCloud<pcl::PointXYZ>(cloud_cropped));
+        pcl::PassThrough<pcl::PointXYZ> pass;
+        pass.setInputCloud(cloud_sampled_ptr);
+        pass.setFilterFieldName("x"); //facing front
+        pass.setFilterLimits(0, 1.2);
+        pass.filter(*cloud_cropped_ptr);
+
+        pass.setInputCloud(cloud_cropped_ptr);
+        pass.setFilterFieldName("y"); //facing left
+        pass.setFilterLimits(-1.5, 1.5);
+        pass.filter(*cloud_cropped_ptr);
+
+        pass.setInputCloud(cloud_cropped_ptr);
+        pass.setFilterFieldName("z"); //facing up
+        pass.setFilterLimits(-1.5, 0.5);
+        pass.filter(*cloud_cropped_ptr);
+
+        //ROS_INFO("cloud_cropped size %d", cloud_cropped.points.size());
+        //ROS_INFO("cloud_cropped ptr size %d", cloud_cropped_ptr->points.size());
+
+        // Filter out the arm itself
+        // TODO: only filter out left arm when planning for right arm, vice versa
+        pcl::PointCloud<pcl::PointXYZ> cloud_filtered;
+        KDL::ChainFkSolverPos_recursive fk_solver_l(left_arm_.chain);
+        KDL::ChainFkSolverPos_recursive fk_solver_r(right_arm_.chain);
+        std::vector<KDL::Frame> link_frames_l(left_arm_.chain.getNrOfSegments());
+        std::vector<KDL::Frame> link_frames_r(right_arm_.chain.getNrOfSegments());
+        KDL::JntArray joint_positions_l(current_left_joint_angles_.size());
+        KDL::JntArray joint_positions_r(current_right_joint_angles_.size());
+        for (size_t i = 0; i < joint_positions_l.rows(); ++i)
+        {
+            joint_positions_l(i) = current_left_joint_angles_[i];
+            joint_positions_r(i) = current_right_joint_angles_[i];
+            //ROS_INFO("joint r[%d] angle: %f", i, current_right_joint_angles_[i]);
+        }
+        //fk_solver_l.JntToCart(joint_positions_l, link_frames_l);
+        //fk_solver_r.JntToCart(joint_positions_r, link_frames_r);
+        KDL::Frame l_frame, r_frame;
+        for (size_t i = 0; i < left_arm_.chain.getNrOfSegments(); ++i)
+        {
+            fk_solver_l.JntToCart(joint_positions_l, l_frame, i+1);
+            fk_solver_r.JntToCart(joint_positions_r, r_frame, i+1);
+            link_frames_l[i]=l_frame;
+            link_frames_r[i]=r_frame;
+            //ROS_INFO("Right arm link frame: x: %f, y: %f, z: %f", r_frame.p.x(), r_frame.p.y(), r_frame.p.z());
+        }
+
+        pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+        for (size_t i = 0; i < link_frames_l.size(); ++i) {
+            KDL::Vector link_pos_l = link_frames_l[i].p;
+            KDL::Vector link_pos_r = link_frames_r[i].p;
+            //ROS_INFO("link_pos_r[%d] x:%f y:%f z:%f", i, link_pos_r.x(), link_pos_r.y(), link_pos_r.z());
+            for (size_t j = 0; j < cloud_cropped_ptr->points.size(); ++j) {
+                const auto& point = cloud_cropped_ptr->points[j];
+                double distance_l = std::sqrt(std::pow(point.x - link_pos_l.x(), 2) +
+                                            std::pow(point.y - link_pos_l.y(), 2) +
+                                            std::pow(point.z - link_pos_l.z(), 2));
+                double distance_r = std::sqrt(std::pow(point.x - link_pos_r.x(), 2) +
+                                            std::pow(point.y - link_pos_r.y(), 2) +
+                                            std::pow(point.z - link_pos_r.z(), 2));
+               
+                if (distance_l < 0.1 || distance_r < 0.1) {  // Adjust the threshold as needed
+                    inliers->indices.push_back(j);
+                }
+            }
+        }
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud(cloud_cropped_ptr);
+        extract.setIndices(inliers);
+        extract.setNegative(true);
+        extract.filter(cloud_filtered);
+
+        //ROS_INFO("cloud_filtered size %d", cloud_filtered.points.size());
+        
         depth_camera_point_cloud_ = cloud_filtered;
+        depth_camera_point_cloud_.header = cloud_transformed.header;
 
+        // Combine depth point cloud and cube point cloud 
         if (cube_point_cloud_exist_)
         {   
             combined_point_cloud_ = transformCloud(cube_point_cloud_, right_arm_.chain_start) + transformCloud(depth_camera_point_cloud_, right_arm_.chain_start);
@@ -178,7 +270,10 @@ void TrajectoryPlanner::depthCameraCallback(const sensor_msgs::PointCloud2ConstP
         {
             combined_point_cloud_ = transformCloud(depth_camera_point_cloud_, right_arm_.chain_start);
         }
-        combined_point_cloud_.header.frame_id = depth_camera_point_cloud_.header.frame_id;
+        //combined_point_cloud_.header.frame_id = depth_camera_point_cloud_.header.frame_id;
+        sensor_msgs::PointCloud2 output;
+        pcl::toROSMsg(combined_point_cloud_, output);
+        combined_point_cloud_pub_.publish(output);
     }
 }
 
@@ -198,6 +293,7 @@ pcl::PointCloud<pcl::PointXYZ> TrajectoryPlanner::transformCloud(const pcl::Poin
 
     pcl::PointCloud<pcl::PointXYZ> cloud_out;
     pcl_ros::transformPointCloud(cloud, cloud_out, transform_stamped.transform);
+    cloud_out.header.frame_id = target_frame;
     return cloud_out;
 }
 
@@ -452,7 +548,7 @@ void TrajectoryPlanner::trajToJointStatePubTimerCallback(const ros::TimerEvent& 
     ros::Time current_time = ros::Time::now();
     ros::Duration elapsed_time = current_time - start_time_;
 
-    ROS_INFO("timer event triggered");
+    //ROS_INFO("timer event triggered");
 
     if (current_traj_point_ < trajectory_.points.size() &&
            elapsed_time >= trajectory_.points[current_traj_point_].time_from_start) {
@@ -492,6 +588,11 @@ bool TrajectoryPlanner::isStateValid(const ompl::base::State* state, const std::
         return true;
     }
 
+    if (combined_point_cloud_.points.size() == 0)
+    {
+        return true;
+    }
+
     const auto* joint_state = state->as<ompl::base::RealVectorStateSpace::StateType>();
     // Convert joint state to positions of all links
     //KDL::JntArray joint_positions(joint_state->as<ompl::base::RealVectorStateSpace::StateType>()->getDimension());
@@ -509,13 +610,14 @@ bool TrajectoryPlanner::isStateValid(const ompl::base::State* state, const std::
     KDL::ChainFkSolverPos_recursive fk_solver(arm_chain);  // Placeholder, update if necessary
     KDL::Frame link_pose;
 
+    // Check for collisions with obstacles
     pcl::PointCloud<pcl::PointXYZ>::Ptr combined_point_cloud_ptr(new pcl::PointCloud<pcl::PointXYZ>(combined_point_cloud_));
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(combined_point_cloud_ptr);
+
     for (size_t i = 0; i < right_arm_.chain.getNrOfSegments(); ++i) {
         fk_solver.JntToCart(joint_positions, link_pose, i);
 
-        // Check for collisions with obstacles
-        pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-        kdtree.setInputCloud(combined_point_cloud_ptr);
         pcl::PointXYZ search_point;
         search_point.x = link_pose.p.x();
         search_point.y = link_pose.p.y();

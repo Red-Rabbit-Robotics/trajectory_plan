@@ -109,8 +109,10 @@ private:
     bool use_depth_camera_point_cloud_;
     bool depth_camera_point_cloud_exist_;
     bool cube_point_cloud_exist_;
-    double point_cloud_update_interval_;
-    ros::Time last_point_cloud_update_time_;
+    double depth_point_cloud_update_interval_;
+    double cube_point_cloud_update_interval_;
+    ros::Time last_depth_point_cloud_update_time_;
+    ros::Time last_cube_point_cloud_update_time_;
 
     bool planning_for_right_arm_;
 
