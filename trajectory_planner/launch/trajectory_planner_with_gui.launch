@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<launch>
+  <!-- Launch the urdf -->
+  <include file="$(find rx1_description)/launch/urdf.launch">
+    <arg name="rvizconfig" value="$(find trajectory_planner)/config/trajectory_planner.rviz" /> 
+  </include>
+
+  <!-- Launch the trajectory planner node -->
+  <include file="$(find trajectory_planner)/launch/include/trajectory_planner.launch"/>
+
+  <!-- Launch the RQT GUI node -->
+  <include file="$(find trajectory_planner_rqt)/launch/rqt_trajectory_planner.launch"/>
+
+</launch>

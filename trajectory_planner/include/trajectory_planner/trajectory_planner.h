@@ -120,6 +120,8 @@ private:
     ros::Timer traj_to_joint_state_pub_timer_;
     size_t current_traj_point_;
     ros::Time start_time_;
+
+    bool plan_succeed_;
 };
 
 #endif // TRAJECTORY_PLANNER_H

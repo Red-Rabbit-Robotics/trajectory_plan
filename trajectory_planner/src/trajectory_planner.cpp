@@ -47,7 +47,8 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle& nh, const std::strin
       cube_point_cloud_exist_(false),
       use_depth_camera_point_cloud_(true),
       depth_point_cloud_update_interval_(0.3),
-      cube_point_cloud_update_interval_(5.0){
+      cube_point_cloud_update_interval_(5.0),
+      plan_succeed_(false){
     
     loadConfig(config_file);
 
@@ -333,6 +334,7 @@ bool TrajectoryPlanner::planTrajectory(const ArmConfig& arm, const std::vector<d
     KDL::JntArray goal_joint_angles;
     if (!getIK(arm.chain, arm.joint_limits, target_frame, goal_joint_angles))
     {
+        plan_succeed_ = false;
         return false;
     }
 
@@ -445,8 +447,10 @@ void TrajectoryPlanner::planLeftTrajectoryCallback(const geometry_msgs::Pose::Co
     
     if (res && !planned_trajectory.points.empty()) {
         left_planned_trajectory_ = planned_trajectory;
+        plan_succeed_ = true;
         ROS_INFO("Left arm trajectory planned successfully.");
     } else {
+        plan_succeed_ = false;
         ROS_WARN("Failed to plan the left arm trajectory.");
     }
 }
@@ -458,20 +462,28 @@ void TrajectoryPlanner::planRightTrajectoryCallback(const geometry_msgs::Pose::C
     
     if (res && !planned_trajectory.points.empty()) {
         right_planned_trajectory_ = planned_trajectory;
+        plan_succeed_ = true;
         ROS_INFO("Right arm trajectory planned successfully.");
     } else {
+        plan_succeed_ = false;
         ROS_WARN("Failed to plan the right arm trajectory.");
     }
 }
 
 void TrajectoryPlanner::visualizeLeftTrajectoryCallback(const std_msgs::Empty::ConstPtr& msg) {
-    visualizeTrajectory(left_planned_trajectory_, current_left_joint_angles_);
-    ROS_INFO("Left arm trajectory visualization complete.");
+    if (plan_succeed_)
+    {
+        visualizeTrajectory(left_planned_trajectory_, current_left_joint_angles_);
+        ROS_INFO("Left arm trajectory visualization complete.");
+    }
 }
 
 void TrajectoryPlanner::visualizeRightTrajectoryCallback(const std_msgs::Empty::ConstPtr& msg) {
-    visualizeTrajectory(right_planned_trajectory_, current_right_joint_angles_);
-    ROS_INFO("Right arm trajectory visualization complete.");
+    if (plan_succeed_)
+    {
+        visualizeTrajectory(right_planned_trajectory_, current_right_joint_angles_);
+        ROS_INFO("Right arm trajectory visualization complete.");
+    }
 }
 
 void TrajectoryPlanner::visualizeTrajectory(const trajectory_msgs::JointTrajectory& planned_trajectory, std::vector<double>& current_joint_angles) {
@@ -491,13 +503,14 @@ void TrajectoryPlanner::visualizeTrajectory(const trajectory_msgs::JointTrajecto
         rate.sleep();
     }
     sensor_msgs::JointState head_joint_state;
+    /* 
     head_joint_state.header.stamp = ros::Time::now();
     head_joint_state.name = {"neck_yaw2pitch_joint"};
-    head_joint_state.position = {348.0/2048.0*3.14};
+    head_joint_state.position = {448.0/2048.0*3.14}; //TODO use proper head joints value instead hardcoding
     head_joint_state.velocity = {0};
     head_joint_state.effort = {0};
     visualize_joint_states_pub_.publish(head_joint_state);
-
+    */
     ros::Duration(3.0).sleep();  // Wait for 3 seconds
 
     // Move the robot back to the starting position
@@ -547,8 +560,6 @@ void TrajectoryPlanner::trajToJointStatePubTimerCallback(const ros::TimerEvent& 
 
     ros::Time current_time = ros::Time::now();
     ros::Duration elapsed_time = current_time - start_time_;
-
-    //ROS_INFO("timer event triggered");
 
     if (current_traj_point_ < trajectory_.points.size() &&
            elapsed_time >= trajectory_.points[current_traj_point_].time_from_start) {

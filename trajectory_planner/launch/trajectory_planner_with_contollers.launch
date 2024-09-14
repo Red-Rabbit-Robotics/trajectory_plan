@@ -1,8 +1,0 @@
-<launch>
-  <!-- Launch the trajectory planner node -->
-  <include file="$(find trajectory_planner)/launch/include/trajectory_planner.launch"/>
-
-  <!-- Launch the joint state controller node -->
-  <!--include file="$(find trajectory_planner)/launch/include/joint_state_controller.launch"/-->
-
-</launch>

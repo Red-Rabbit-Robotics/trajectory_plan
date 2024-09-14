@@ -142,7 +142,10 @@ class TrajectoryPlannerRqt(Plugin):
         pose.position.x = x
         pose.position.y = y
         pose.position.z = -0.3
-        pose.orientation.w = 1.0
+        pose.orientation.x = 0.0
+        pose.orientation.y = -0.5227
+        pose.orientation.z = 0.0
+        pose.orientation.w = 0.8525 # r=0, p=-1.1, y=0
         marker.pose = pose
 
         # Create a 6-DOF control
