@@ -5,6 +5,15 @@
 
 #include "trajectory_planner/trajectory_planner.h"
 
+// Replace the previous TOPPRA headers with these:
+#include <toppra/algorithm/toppra.hpp>
+#include <toppra/constraint/linear_joint_acceleration.hpp>
+#include <toppra/constraint/linear_joint_velocity.hpp>
+#include <toppra/geometric_path.hpp>
+#include <toppra/geometric_path/piecewise_poly_path.hpp>
+#include <toppra/parametrizer/const_accel.hpp>
+#include <toppra/toppra.hpp>
+
 bool getIK(const KDL::Chain& chain, const std::vector<std::pair<double, double>> joint_limits, const KDL::Frame& target_frame, KDL::JntArray& res) {
     KDL::JntArray lower_limits(chain.getNrOfJoints());
     KDL::JntArray upper_limits(chain.getNrOfJoints());
@@ -359,8 +368,8 @@ bool TrajectoryPlanner::planTrajectory(const ArmConfig& arm, const std::vector<d
 
     if (solved) {
         ss.simplifySolution();
-        ompl::geometric::PathGeometric path = ss.getSolutionPath();
-        path.interpolate(num_waypoints);
+        ompl::geometric::PathGeometric ompl_path = ss.getSolutionPath();
+        ompl_path.interpolate(num_waypoints);
       
         // Store poses for visualization
         geometry_msgs::PoseArray pose_array;
@@ -372,8 +381,8 @@ bool TrajectoryPlanner::planTrajectory(const ArmConfig& arm, const std::vector<d
             arm_chain = left_arm_.chain;
         }
         KDL::ChainFkSolverPos_recursive fk_solver(arm_chain);  // Placeholder, update if necessary
-        for (size_t i = 0; i < path.getStateCount(); ++i) {
-            const auto *state = path.getState(i)->as<ompl::base::RealVectorStateSpace::StateType>();
+        for (size_t i = 0; i < ompl_path.getStateCount(); ++i) {
+            const auto *state = ompl_path.getState(i)->as<ompl::base::RealVectorStateSpace::StateType>();
             KDL::JntArray joint_positions(arm_chain.getNrOfJoints());
             for (size_t j = 0; j < arm_chain.getNrOfJoints(); ++j) {
                 joint_positions(j) = state->values[j];
@@ -394,43 +403,74 @@ bool TrajectoryPlanner::planTrajectory(const ArmConfig& arm, const std::vector<d
         }
         ompl_path_pose_array_ = pose_array;
 
-        std::vector<ompl::base::State*> states = path.getStates();
+        std::vector<ompl::base::State*> states = ompl_path.getStates();
 
-        // Time-parameterize the path
-        double total_time = time;
-        double dt = total_time / (states.size() - 1);
-        std::vector<double> times;
-        for (size_t i = 0; i < states.size(); ++i) {
-            times.push_back(i * dt);
+        // Time-parameterize the path using TOPPRA
+        std::vector<Eigen::VectorXd> waypoints;
+        for (const auto& state : states) {
+            const auto* real_state = state->as<ompl::base::RealVectorStateSpace::StateType>();
+            Eigen::VectorXd waypoint(arm.joint_names.size());
+            for (size_t j = 0; j < arm.joint_names.size(); ++j) {
+                waypoint[j] = real_state->values[j];
+            }
+            waypoints.push_back(waypoint);
         }
 
-        for (size_t i = 0; i < states.size(); ++i) {
-            const ompl::base::RealVectorStateSpace::StateType* state = states[i]->as<ompl::base::RealVectorStateSpace::StateType>();
-            trajectory_msgs::JointTrajectoryPoint point;
-            for (size_t j = 0; j < arm.joint_names.size(); ++j) {
-                point.positions.push_back(state->values[j]);
-            }
-            if (i > 0) {
-                const ompl::base::RealVectorStateSpace::StateType* prev_state = states[i-1]->as<ompl::base::RealVectorStateSpace::StateType>();
+        // Convert waypoints to Matrices type
+        std::vector<Eigen::MatrixXd, Eigen::aligned_allocator<Eigen::MatrixXd>> matrices;
+        for (const auto& waypoint : waypoints) {
+            Eigen::MatrixXd matrix(waypoint.size(), 1);
+            matrix.col(0) = waypoint;
+            matrices.push_back(matrix);
+        }
+
+        // Create breakpoints (assuming uniform distribution for simplicity)
+        std::vector<double> breakpoints(waypoints.size() + 1);
+        for (size_t i = 0; i < breakpoints.size(); ++i) {
+            breakpoints[i] = static_cast<double>(i) / (breakpoints.size() - 1);
+        }
+
+        // Create TOPPRA instance
+        auto path = std::make_shared<toppra::PiecewisePolyPath>(matrices, breakpoints);
+
+        // Set up constraints
+        std::vector<toppra::LinearConstraintPtr> constraints;
+        Eigen::VectorXd vel_limits = Eigen::VectorXd::Constant(path->dof(), 10.0);  // Adjust as needed
+        Eigen::VectorXd acc_limits = Eigen::VectorXd::Constant(path->dof(), 10.0);  // Adjust as needed
+        constraints.push_back(std::make_shared<toppra::constraint::LinearJointVelocity>(-vel_limits, vel_limits));
+        constraints.push_back(std::make_shared<toppra::constraint::LinearJointAcceleration>(-acc_limits, acc_limits));
+
+        // Create TOPPRA instance
+        toppra::algorithm::TOPPRA algo(constraints, path);
+
+        // Compute parameterization
+        toppra::ReturnCode result = algo.computePathParametrization(0, 1);
+        if (result == toppra::ReturnCode::OK) {
+            // Generate trajectory points
+            double total_time = time;
+            int num_samples = 100;  // Adjust as needed
+            for (int i = 0; i < num_samples; ++i) {
+                double s_value = static_cast<double>(i) / (num_samples - 1);
+                Eigen::VectorXd s(1);
+                s << s_value;
+                double t = s_value * total_time;
+
+                Eigen::VectorXd position = path->eval(s)[0];
+                Eigen::VectorXd velocity = path->eval(s, 1)[0];
+                Eigen::VectorXd acceleration = path->eval(s, 2)[0];
+
+                trajectory_msgs::JointTrajectoryPoint point;
                 for (size_t j = 0; j < arm.joint_names.size(); ++j) {
-                    double velocity = (state->values[j] - prev_state->values[j]) / dt;
-                    point.velocities.push_back(velocity);
+                    point.positions.push_back(position[j]);
+                    point.velocities.push_back(velocity[j]);
+                    point.accelerations.push_back(acceleration[j]);
                 }
-            } else {
-                point.velocities = std::vector<double>(arm.joint_names.size(), 0.0); // Zero initial velocities
+                point.time_from_start = ros::Duration(t);
+                trajectory.points.push_back(point);
             }
-            if (i > 1) {
-                const ompl::base::RealVectorStateSpace::StateType* prev_state = states[i-1]->as<ompl::base::RealVectorStateSpace::StateType>();
-                const ompl::base::RealVectorStateSpace::StateType* prev_prev_state = states[i-2]->as<ompl::base::RealVectorStateSpace::StateType>();
-                for (size_t j = 0; j < arm.joint_names.size(); ++j) {
-                    double acceleration = (point.velocities[j] - (prev_state->values[j] - prev_prev_state->values[j]) / dt) / dt;
-                    point.accelerations.push_back(acceleration);
-                }
-            } else {
-                point.accelerations = std::vector<double>(arm.joint_names.size(), 0.0); // Zero initial accelerations
-            }
-            point.time_from_start = ros::Duration(times[i]);
-            trajectory.points.push_back(point);
+        } else {
+            ROS_WARN("TOPPRA parameterization failed");
+            return false;
         }
         return true;
     } else {

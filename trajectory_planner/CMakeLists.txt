@@ -25,6 +25,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(ompl REQUIRED)
+find_package(toppra REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 catkin_package(
@@ -40,8 +41,9 @@ include_directories(
   ${OMPL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIRS}
   ${kdl_parser_INCLUDE_DIRS}
+  ${toppra_INCLUDE_DIRS}
 )
 
 add_executable(trajectory_planner_node src/trajectory_planner.cpp)
-target_link_libraries(trajectory_planner_node ${catkin_LIBRARIES} ${OMPL_LIBRARIES} yaml-cpp)
+target_link_libraries(trajectory_planner_node PUBLIC ${catkin_LIBRARIES} ${OMPL_LIBRARIES} yaml-cpp toppra::toppra ${toppra_LIBRARIES})
 
